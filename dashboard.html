@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#3b82f6">
+    <title>Dashboard - COF</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="css/styles.css">
+    
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container header-content">
+            <a href="dashboard.html" class="logo">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                COF
+            </a>
+            
+            <button class="nav-toggle" onclick="toggleNav()">☰</button>
+            
+            <nav class="nav" id="mainNav">
+                <a href="dashboard.html" class="nav-link active">Dashboard</a>
+                <a href="adicionar.html" class="nav-link">Adicionar</a>
+                <a href="graficos.html" class="nav-link">Gráficos</a>
+                <a href="historico.html" class="nav-link">Histórico</a>
+                <a href="pesquisa.html" class="nav-link">Pesquisa</a>
+                <a href="config.html" class="nav-link">Config</a>
+                <button class="dark-mode-toggle" onclick="toggleDarkMode()" title="Alternar tema">🌙</button>
+                <button class="btn btn-ghost btn-sm" onclick="logout()">Sair</button>
+            </nav>
+        </div>
+    </header>
+    
+    <!-- Main Content -->
+    <main class="container" style="padding: var(--space-xl) var(--space-md);">
+        <!-- Welcome -->
+        <div class="flex justify-between items-center mb-lg">
+            <div>
+                <h1 style="margin-bottom: var(--space-xs);">Olá, <span id="userName">Usuário</span>! 👋</h1>
+                <p class="text-muted" style="margin: 0;" id="currentPeriod">Carregando...</p>
+            </div>
+            <div class="flex gap-sm">
+                <select class="form-select" id="filterMonth" style="width: auto;"></select>
+                <select class="form-select" id="filterYear" style="width: auto;"></select>
+            </div>
+        </div>
+        
+        <!-- Summary Cards -->
+        <div class="dashboard-summary">
+            <div class="card summary-card fade-in stagger-1">
+                <div class="card-header">
+                    <span class="card-title">Total do Mês</span>
+                    <div class="card-icon blue">💰</div>
+                </div>
+                <div class="card-value" id="totalMes">R$ 0,00</div>
+                <p class="text-muted" style="font-size: 0.75rem; margin: var(--space-sm) 0 0;">
+                    <span id="totalVariacao"></span>
+                </p>
+            </div>
+            
+            <div class="card summary-card fade-in stagger-2">
+                <div class="card-header">
+                    <span class="card-title">Gastos Fixos</span>
+                    <div class="card-icon purple">📋</div>
+                </div>
+                <div class="card-value" id="totalFixos">R$ 0,00</div>
+                <p class="text-muted" style="font-size: 0.75rem; margin: var(--space-sm) 0 0;">
+                    <span id="qtdFixos">0</span> lançamentos
+                </p>
+            </div>
+            
+            <div class="card summary-card fade-in stagger-3">
+                <div class="card-header">
+                    <span class="card-title">Gastos Variáveis</span>
+                    <div class="card-icon orange">🛒</div>
+                </div>
+                <div class="card-value" id="totalVariaveis">R$ 0,00</div>
+                <p class="text-muted" style="font-size: 0.75rem; margin: var(--space-sm) 0 0;">
+                    <span id="qtdVariaveis">0</span> lançamentos
+                </p>
+            </div>
+            
+            <div class="card summary-card fade-in stagger-4">
+                <div class="card-header">
+                    <span class="card-title">Média Diária</span>
+                    <div class="card-icon green">📊</div>
+                </div>
+                <div class="card-value" id="mediaDiaria">R$ 0,00</div>
+                <p class="text-muted" style="font-size: 0.75rem; margin: var(--space-sm) 0 0;">
+                    baseado em <span id="diasComGasto">0</span> dias
+                </p>
+            </div>
+        </div>
+        
+        <!-- Charts and Lists -->
+        <div class="grid grid-2" style="margin-top: var(--space-xl);">
+            <!-- Chart -->
+            <div class="card fade-in">
+                <h3 class="card-title">Distribuição por Categoria</h3>
+                <div style="height: 300px; position: relative;">
+                    <canvas id="chartCategoria"></canvas>
+                </div>
+            </div>
+            
+            <!-- Limits -->
+            <div class="card fade-in">
+                <h3 class="card-title">Limites de Gastos Variáveis</h3>
+                <div id="limitesContainer">
+                    <div class="loading-skeleton">
+                        <div class="skeleton-line"></div>
+                        <div class="skeleton-line short"></div>
+                        <div class="skeleton-line"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Recent Expenses -->
+        <div class="card fade-in" style="margin-top: var(--space-xl);">
+            <div class="card-header">
+                <h3 class="card-title">Últimos Lançamentos</h3>
+                <a href="adicionar.html" class="btn btn-primary btn-sm">+ Novo Gasto</a>
+            </div>
+            <div id="recentExpenses">
+                <div class="loading-skeleton">
+                    <div class="skeleton-line"></div>
+                    <div class="skeleton-line short"></div>
+                    <div class="skeleton-line"></div>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <div id="toast-container"></div>
+    
+    <script src="js/shared.js"></script>
+    <script>
+        // Auth check
+        if (!checkAuth()) {
+            window.location.href = 'index.html';
+        }
+        
+        // Init Firebase
+        initFirebase();
+        
+        // State
+        let gastos = [];
+        let appData = {};
+        let limites = {};
+        let selectedMonth = new Date().getMonth();
+        let selectedYear = new Date().getFullYear();
+        let chartCategoria = null;
+        
+        // DOM Elements
+        const filterMonth = document.getElementById('filterMonth');
+        const filterYear = document.getElementById('filterYear');
+        
+        // Initialize filters
+        function initFilters() {
+            // Months
+            const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+                           'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+            months.forEach((month, i) => {
+                const option = document.createElement('option');
+                option.value = i;
+                option.textContent = month;
+                if (i === selectedMonth) option.selected = true;
+                filterMonth.appendChild(option);
+            });
+            
+            // Years
+            const currentYear = new Date().getFullYear();
+            for (let y = currentYear - 2; y <= currentYear + 1; y++) {
+                const option = document.createElement('option');
+                option.value = y;
+                option.textContent = y;
+                if (y === selectedYear) option.selected = true;
+                filterYear.appendChild(option);
+            }
+            
+            filterMonth.addEventListener('change', () => {
+                selectedMonth = parseInt(filterMonth.value);
+                updateDashboard();
+            });
+            
+            filterYear.addEventListener('change', () => {
+                selectedYear = parseInt(filterYear.value);
+                updateDashboard();
+            });
+        }
+        
+        // Load data
+        function loadData() {
+            // App Data
+            database.ref('appData').on('value', (snapshot) => {
+                appData = snapshot.val() || {
+                    categorias: { fixas: ['Escola', 'Diarista', 'Internet', 'Água', 'Luz', 'Clube'], 
+                                  variaveis: ['Supermercado', 'Farmácia', 'Lazer'] },
+                    nomes: ['Fernando', 'Estefania']
+                };
+            });
+            
+            // Limites
+            database.ref('limites').on('value', (snapshot) => {
+                limites = snapshot.val() || {};
+                updateDashboard();
+            });
+            
+            // Gastos
+            database.ref('gastos').on('value', (snapshot) => {
+                const data = snapshot.val();
+                gastos = data ? Object.values(data) : [];
+                updateDashboard();
+            });
+        }
+        
+        // Filter expenses by period
+        function getFilteredGastos() {
+            return gastos.filter(g => {
+                if (!g.data) return false;
+                const [year, month] = g.data.split('-').map(Number);
+                return month - 1 === selectedMonth && year === selectedYear;
+            });
+        }
+        
+        // Update dashboard
+        function updateDashboard() {
+            const filtered = getFilteredGastos();
+            
+            // Update period text
+            document.getElementById('currentPeriod').textContent = 
+                `${getMonthName(selectedMonth)} de ${selectedYear}`;
+            
+            // Calculate totals
+            const totalMes = filtered.reduce((sum, g) => sum + (parseFloat(g.valor) || 0), 0);
+            const fixos = filtered.filter(g => g.tipo === 'fixo');
+            const variaveis = filtered.filter(g => g.tipo === 'variavel');
+            const totalFixos = fixos.reduce((sum, g) => sum + (parseFloat(g.valor) || 0), 0);
+            const totalVariaveis = variaveis.reduce((sum, g) => sum + (parseFloat(g.valor) || 0), 0);
+            
+            // Unique days
+            const uniqueDays = new Set(filtered.map(g => g.data)).size;
+            const mediaDiaria = uniqueDays > 0 ? totalMes / uniqueDays : 0;
+            
+            // Update cards
+            document.getElementById('totalMes').textContent = formatCurrency(totalMes);
+            document.getElementById('totalFixos').textContent = formatCurrency(totalFixos);
+            document.getElementById('totalVariaveis').textContent = formatCurrency(totalVariaveis);
+            document.getElementById('mediaDiaria').textContent = formatCurrency(mediaDiaria);
+            document.getElementById('qtdFixos').textContent = fixos.length;
+            document.getElementById('qtdVariaveis').textContent = variaveis.length;
+            document.getElementById('diasComGasto').textContent = uniqueDays;
+            
+            // Compare with last month
+            const lastMonth = selectedMonth === 0 ? 11 : selectedMonth - 1;
+            const lastYear = selectedMonth === 0 ? selectedYear - 1 : selectedYear;
+            const lastFiltered = gastos.filter(g => {
+                if (!g.data) return false;
+                const [year, month] = g.data.split('-').map(Number);
+                return month - 1 === lastMonth && year === lastYear;
+            });
+            const lastTotal = lastFiltered.reduce((sum, g) => sum + (parseFloat(g.valor) || 0), 0);
+            
+            if (lastTotal > 0) {
+                const diff = ((totalMes - lastTotal) / lastTotal * 100).toFixed(1);
+                const emoji = diff > 0 ? '📈' : '📉';
+                const color = diff > 0 ? 'text-error' : 'text-success';
+                document.getElementById('totalVariacao').innerHTML = 
+                    `<span class="${color}">${emoji} ${diff > 0 ? '+' : ''}${diff}%</span> vs mês anterior`;
+            } else {
+                document.getElementById('totalVariacao').textContent = '';
+            }
+            
+            // Update chart
+            updateChart(filtered);
+            
+            // Update limits
+            updateLimites(variaveis);
+            
+            // Update recent expenses
+            updateRecentExpenses(filtered);
+        }
+        
+        // Update chart
+        function updateChart(filtered) {
+            const ctx = document.getElementById('chartCategoria').getContext('2d');
+            
+            // Group by category
+            const byCategory = {};
+            filtered.forEach(g => {
+                const cat = g.categoria || 'Outros';
+                byCategory[cat] = (byCategory[cat] || 0) + (parseFloat(g.valor) || 0);
+            });
+            
+            const labels = Object.keys(byCategory);
+            const data = Object.values(byCategory);
+            const colors = [
+                '#3b82f6', '#8b5cf6', '#f59e0b', '#22c55e', '#ef4444',
+                '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#6366f1'
+            ];
+            
+            if (chartCategoria) {
+                chartCategoria.destroy();
+            }
+            
+            if (labels.length === 0) {
+                document.getElementById('chartCategoria').parentElement.innerHTML = 
+                    '<p class="text-center text-muted" style="padding: var(--space-xl);">Nenhum gasto neste período</p>';
+                return;
+            }
+            
+            chartCategoria = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: colors.slice(0, labels.length),
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 15,
+                                usePointStyle: true,
+                                color: getComputedStyle(document.documentElement).getPropertyValue('--text-secondary')
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: (context) => {
+                                    const value = context.raw;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const pct = ((value / total) * 100).toFixed(1);
+                                    return `${context.label}: ${formatCurrency(value)} (${pct}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Update limits
+        function updateLimites(variaveis) {
+            const container = document.getElementById('limitesContainer');
+            
+            // Group by category
+            const byCategory = {};
+            variaveis.forEach(g => {
+                const cat = g.categoria || 'Outros';
+                byCategory[cat] = (byCategory[cat] || 0) + (parseFloat(g.valor) || 0);
+            });
+            
+            const categories = appData.categorias?.variaveis || [];
+            
+            if (categories.length === 0) {
+                container.innerHTML = '<p class="text-muted text-center">Nenhuma categoria variável configurada</p>';
+                return;
+            }
+            
+            let html = '';
+            categories.forEach(cat => {
+                const spent = byCategory[cat] || 0;
+                const limit = limites[cat] || 0;
+                
+                if (limit > 0) {
+                    const pct = Math.min((spent / limit) * 100, 100);
+                    let colorClass = 'green';
+                    let status = 'OK';
+                    
+                    if (pct >= 100) {
+                        colorClass = 'red';
+                        status = '⚠️ Excedido!';
+                    } else if (pct >= 80) {
+                        colorClass = 'yellow';
+                        status = '⚡ Atenção';
+                    }
+                    
+                    html += `
+                        <div class="limit-indicator" style="margin-bottom: var(--space-md);">
+                            <div class="flex justify-between items-center mb-sm">
+                                <span style="font-weight: 500;">${cat}</span>
+                                <span class="badge badge-${colorClass === 'green' ? 'green' : colorClass === 'yellow' ? 'orange' : 'red'}">${status}</span>
+                            </div>
+                            <div class="limit-text">
+                                <span>${formatCurrency(spent)}</span>
+                                <span>de ${formatCurrency(limit)}</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill ${colorClass}" style="width: ${pct}%"></div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    html += `
+                        <div class="limit-indicator" style="margin-bottom: var(--space-md);">
+                            <div class="flex justify-between items-center">
+                                <span style="font-weight: 500;">${cat}</span>
+                                <span class="text-muted" style="font-size: 0.875rem;">${formatCurrency(spent)}</span>
+                            </div>
+                            <p class="text-muted" style="font-size: 0.75rem; margin: var(--space-xs) 0 0;">
+                                Sem limite definido - <a href="config.html" style="color: var(--primary-500);">Configurar</a>
+                            </p>
+                        </div>
+                    `;
+                }
+            });
+            
+            container.innerHTML = html || '<p class="text-muted text-center">Nenhum limite configurado</p>';
+        }
+        
+        // Update recent expenses
+        function updateRecentExpenses(filtered) {
+            const container = document.getElementById('recentExpenses');
+            
+            // Sort by date desc, take last 5
+            const recent = [...filtered]
+                .sort((a, b) => new Date(b.data) - new Date(a.data))
+                .slice(0, 5);
+            
+            if (recent.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center" style="padding: var(--space-xl);">
+                        <p class="text-muted">Nenhum gasto registrado neste período</p>
+                        <a href="adicionar.html" class="btn btn-primary mt-md">Adicionar Primeiro Gasto</a>
+                    </div>
+                `;
+                return;
+            }
+            
+            const categoryIcons = {
+                'Escola': '🎓', 'Diarista': '🧹', 'Internet': '📶', 'Água': '💧', 
+                'Luz': '💡', 'Clube': '🏊', 'Supermercado': '🛒', 'Farmácia': '💊',
+                'Lazer': '🎮', 'Outros': '📦'
+            };
+            
+            let html = '';
+            recent.forEach(g => {
+                const icon = categoryIcons[g.categoria] || '📦';
+                const bgColor = g.tipo === 'fixo' ? 'purple' : 'orange';
+                
+                html += `
+                    <div class="expense-item">
+                        <div class="expense-icon card-icon ${bgColor}">${icon}</div>
+                        <div class="expense-info">
+                            <div class="expense-category">${g.categoria || 'Sem categoria'}</div>
+                            <div class="expense-description">${g.descricao || '-'} ${g.subcategoria ? `• ${g.subcategoria}` : ''}</div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div class="expense-value">${formatCurrency(g.valor)}</div>
+                            <div class="expense-date">${formatDate(g.data)}</div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        // Toggle nav mobile
+        function toggleNav() {
+            document.getElementById('mainNav').classList.toggle('open');
+        }
+        
+        // Init
+        document.getElementById('userName').textContent = getCurrentUser();
+        initFilters();
+        loadData();
+    </script>
+</body>
+</html>

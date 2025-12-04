@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#3b82f6">
+    <title>Adicionar Gasto - COF</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="css/styles.css">
+    
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container header-content">
+            <a href="dashboard.html" class="logo">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                COF
+            </a>
+            
+            <button class="nav-toggle" onclick="toggleNav()">☰</button>
+            
+            <nav class="nav" id="mainNav">
+                <a href="dashboard.html" class="nav-link">Dashboard</a>
+                <a href="adicionar.html" class="nav-link active">Adicionar</a>
+                <a href="graficos.html" class="nav-link">Gráficos</a>
+                <a href="historico.html" class="nav-link">Histórico</a>
+                <a href="pesquisa.html" class="nav-link">Pesquisa</a>
+                <a href="config.html" class="nav-link">Config</a>
+                <button class="dark-mode-toggle" onclick="toggleDarkMode()" title="Alternar tema">🌙</button>
+                <button class="btn btn-ghost btn-sm" onclick="logout()">Sair</button>
+            </nav>
+        </div>
+    </header>
+    
+    <!-- Main Content -->
+    <main class="container" style="padding: var(--space-xl) var(--space-md); max-width: 600px;">
+        <div class="card fade-in">
+            <h2 style="margin-bottom: var(--space-lg);">
+                <span id="formTitle">Novo Gasto</span>
+            </h2>
+            
+            <form id="formGasto">
+                <!-- Tipo -->
+                <div class="form-group">
+                    <label class="form-label">Tipo de Gasto *</label>
+                    <div class="flex gap-sm">
+                        <label style="flex: 1; cursor: pointer;">
+                            <input type="radio" name="tipo" value="fixo" id="tipoFixo" style="display: none;">
+                            <div class="tipo-option" id="optionFixo">
+                                📋 Fixo
+                            </div>
+                        </label>
+                        <label style="flex: 1; cursor: pointer;">
+                            <input type="radio" name="tipo" value="variavel" id="tipoVariavel" checked style="display: none;">
+                            <div class="tipo-option active" id="optionVariavel">
+                                🛒 Variável
+                            </div>
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Categoria -->
+                <div class="form-group">
+                    <label class="form-label" for="categoria">Categoria *</label>
+                    <select class="form-select" id="categoria" required>
+                        <option value="">Selecione...</option>
+                    </select>
+                </div>
+                
+                <!-- Subcategoria (OPCIONAL) -->
+                <div class="form-group">
+                    <label class="form-label" for="subcategoria">
+                        Subcategoria 
+                        <span class="text-muted" style="font-weight: normal;">(opcional)</span>
+                    </label>
+                    <select class="form-select" id="subcategoria">
+                        <option value="">Nenhuma</option>
+                    </select>
+                    <p class="form-hint">Detalhe adicional para melhor organização</p>
+                </div>
+                
+                <!-- Valor -->
+                <div class="form-group">
+                    <label class="form-label" for="valor">Valor *</label>
+                    <div style="position: relative;">
+                        <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted);">R$</span>
+                        <input type="text" class="form-input" id="valor" 
+                               placeholder="0,00" required
+                               style="padding-left: 40px;"
+                               inputmode="decimal">
+                    </div>
+                </div>
+                
+                <!-- Data -->
+                <div class="form-group">
+                    <label class="form-label" for="data">Data *</label>
+                    <input type="date" class="form-input" id="data" required>
+                </div>
+                
+                <!-- Responsável -->
+                <div class="form-group">
+                    <label class="form-label" for="responsavel">Quem pagou? *</label>
+                    <select class="form-select" id="responsavel" required>
+                        <option value="">Selecione...</option>
+                    </select>
+                </div>
+                
+                <!-- Descrição -->
+                <div class="form-group">
+                    <label class="form-label" for="descricao">
+                        Descrição 
+                        <span class="text-muted" style="font-weight: normal;">(opcional)</span>
+                    </label>
+                    <textarea class="form-input" id="descricao" rows="2" 
+                              placeholder="Detalhes do gasto..."></textarea>
+                </div>
+                
+                <!-- Buttons -->
+                <div class="flex gap-sm" style="margin-top: var(--space-lg);">
+                    <button type="button" class="btn btn-secondary" onclick="limparForm()" style="flex: 1;">
+                        Limpar
+                    </button>
+                    <button type="submit" class="btn btn-primary" id="btnSalvar" style="flex: 2;">
+                        <span id="btnText">💾 Salvar Gasto</span>
+                        <span id="btnLoading" class="hidden">Salvando...</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Quick Add Buttons -->
+        <div class="card fade-in" style="margin-top: var(--space-md);">
+            <h4 style="margin-bottom: var(--space-md);">⚡ Adição Rápida</h4>
+            <div class="flex gap-sm" style="flex-wrap: wrap;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="quickAdd('Supermercado')">🛒 Mercado</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="quickAdd('Farmácia')">💊 Farmácia</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="quickAdd('Lazer')">🎮 Lazer</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="quickAdd('Luz')">💡 Luz</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="quickAdd('Água')">💧 Água</button>
+            </div>
+        </div>
+    </main>
+    
+    <div id="toast-container"></div>
+    
+    <style>
+        .tipo-option {
+            padding: var(--space-md);
+            border: 2px solid var(--border-color);
+            border-radius: var(--radius-md);
+            text-align: center;
+            font-weight: 500;
+            transition: all var(--transition-fast);
+        }
+        
+        .tipo-option:hover {
+            border-color: var(--primary-400);
+            background: var(--primary-50);
+        }
+        
+        .dark .tipo-option:hover {
+            background: var(--primary-900);
+        }
+        
+        .tipo-option.active {
+            border-color: var(--primary-500);
+            background: var(--primary-100);
+            color: var(--primary-700);
+        }
+        
+        .dark .tipo-option.active {
+            background: var(--primary-900);
+            color: var(--primary-300);
+        }
+    </style>
+    
+    <script src="js/shared.js"></script>
+    <script>
+        // Auth check
+        if (!checkAuth()) {
+            window.location.href = 'index.html';
+        }
+        
+        // Init Firebase
+        initFirebase();
+        
+        // State
+        let appData = {};
+        let editingId = null;
+        
+        // Get edit ID from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        editingId = urlParams.get('edit');
+        
+        // Load app data
+        function loadAppData() {
+            database.ref('appData').once('value', (snapshot) => {
+                appData = snapshot.val() || {
+                    categorias: { 
+                        fixas: ['Escola', 'Diarista', 'Internet', 'Água', 'Luz', 'Clube'], 
+                        variaveis: ['Supermercado', 'Farmácia', 'Lazer'] 
+                    },
+                    subcategorias: {},
+                    nomes: ['Fernando', 'Estefania']
+                };
+                
+                // Load responsaveis
+                loadResponsaveis();
+                
+                // Load categories
+                updateCategories();
+                
+                // If editing, load expense data
+                if (editingId) {
+                    loadExpenseForEdit();
+                }
+            });
+        }
+        
+        // Load responsaveis
+        function loadResponsaveis() {
+            const select = document.getElementById('responsavel');
+            select.innerHTML = '<option value="">Selecione...</option>';
+            
+            const nomes = appData.nomes || ['Fernando', 'Estefania'];
+            nomes.forEach(nome => {
+                const option = document.createElement('option');
+                option.value = nome;
+                option.textContent = nome;
+                // Pre-select current user
+                if (nome === getCurrentUser()) {
+                    option.selected = true;
+                }
+                select.appendChild(option);
+            });
+        }
+        
+        // Update categories based on tipo
+        function updateCategories() {
+            const tipo = document.querySelector('input[name="tipo"]:checked').value;
+            const select = document.getElementById('categoria');
+            select.innerHTML = '<option value="">Selecione...</option>';
+            
+            const categorias = tipo === 'fixo' 
+                ? (appData.categorias?.fixas || [])
+                : (appData.categorias?.variaveis || []);
+            
+            categorias.forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat;
+                option.textContent = cat;
+                select.appendChild(option);
+            });
+            
+            // Reset subcategoria when categoria changes
+            updateSubcategorias();
+        }
+        
+        // Update subcategorias based on selected categoria
+        function updateSubcategorias() {
+            const categoria = document.getElementById('categoria').value;
+            const select = document.getElementById('subcategoria');
+            select.innerHTML = '<option value="">Nenhuma</option>';
+            
+            if (!categoria) return;
+            
+            const subcategorias = appData.subcategorias?.[categoria] || [];
+            subcategorias.forEach(sub => {
+                const option = document.createElement('option');
+                option.value = sub;
+                option.textContent = sub;
+                select.appendChild(option);
+            });
+        }
+        
+        // Listen for categoria change
+        document.getElementById('categoria').addEventListener('change', updateSubcategorias);
+        
+        // Tipo change handlers
+        document.getElementById('tipoFixo').addEventListener('change', function() {
+            document.getElementById('optionFixo').classList.add('active');
+            document.getElementById('optionVariavel').classList.remove('active');
+            updateCategories();
+        });
+        
+        document.getElementById('tipoVariavel').addEventListener('change', function() {
+            document.getElementById('optionVariavel').classList.add('active');
+            document.getElementById('optionFixo').classList.remove('active');
+            updateCategories();
+        });
+        
+        // Format valor input
+        document.getElementById('valor').addEventListener('input', function(e) {
+            let value = e.target.value.replace(/[^\d]/g, '');
+            if (value) {
+                value = (parseInt(value) / 100).toFixed(2);
+                value = value.replace('.', ',');
+            }
+            e.target.value = value;
+        });
+        
+        // Load expense for editing
+        function loadExpenseForEdit() {
+            document.getElementById('formTitle').textContent = 'Editar Gasto';
+            document.getElementById('btnText').textContent = '💾 Atualizar Gasto';
+            
+            database.ref('gastos/' + editingId).once('value', (snapshot) => {
+                const gasto = snapshot.val();
+                if (!gasto) {
+                    showToast('Gasto não encontrado', 'error');
+                    window.location.href = 'historico.html';
+                    return;
+                }
+                
+                // Set tipo
+                if (gasto.tipo === 'fixo') {
+                    document.getElementById('tipoFixo').checked = true;
+                    document.getElementById('optionFixo').classList.add('active');
+                    document.getElementById('optionVariavel').classList.remove('active');
+                } else {
+                    document.getElementById('tipoVariavel').checked = true;
+                }
+                updateCategories();
+                
+                // Set other fields
+                setTimeout(() => {
+                    document.getElementById('categoria').value = gasto.categoria || '';
+                    updateSubcategorias();
+                    setTimeout(() => {
+                        document.getElementById('subcategoria').value = gasto.subcategoria || '';
+                    }, 50);
+                    document.getElementById('valor').value = gasto.valor ? 
+                        parseFloat(gasto.valor).toFixed(2).replace('.', ',') : '';
+                    document.getElementById('data').value = gasto.data || '';
+                    document.getElementById('responsavel').value = gasto.responsavel || '';
+                    document.getElementById('descricao').value = gasto.descricao || '';
+                }, 100);
+            });
+        }
+        
+        // Clear form
+        function limparForm() {
+            document.getElementById('formGasto').reset();
+            document.getElementById('tipoVariavel').checked = true;
+            document.getElementById('optionVariavel').classList.add('active');
+            document.getElementById('optionFixo').classList.remove('active');
+            document.getElementById('data').value = getTodayDateString();
+            document.getElementById('responsavel').value = getCurrentUser();
+            updateCategories();
+            document.getElementById('subcategoria').innerHTML = '<option value="">Nenhuma</option>';
+            
+            if (editingId) {
+                editingId = null;
+                document.getElementById('formTitle').textContent = 'Novo Gasto';
+                document.getElementById('btnText').textContent = '💾 Salvar Gasto';
+                window.history.replaceState({}, '', 'adicionar.html');
+            }
+            
+            showToast('Formulário limpo', 'info');
+        }
+        
+        // Quick add
+        function quickAdd(categoria) {
+            const isFixa = (appData.categorias?.fixas || []).includes(categoria);
+            
+            if (isFixa) {
+                document.getElementById('tipoFixo').checked = true;
+                document.getElementById('optionFixo').classList.add('active');
+                document.getElementById('optionVariavel').classList.remove('active');
+            } else {
+                document.getElementById('tipoVariavel').checked = true;
+                document.getElementById('optionVariavel').classList.add('active');
+                document.getElementById('optionFixo').classList.remove('active');
+            }
+            
+            updateCategories();
+            
+            setTimeout(() => {
+                document.getElementById('categoria').value = categoria;
+                document.getElementById('valor').focus();
+            }, 50);
+            
+            showToast(`Categoria "${categoria}" selecionada`, 'info');
+        }
+        
+        // Toggle nav
+        function toggleNav() {
+            document.getElementById('mainNav').classList.toggle('open');
+        }
+        
+        // Form submit
+        document.getElementById('formGasto').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const btnSalvar = document.getElementById('btnSalvar');
+            const btnText = document.getElementById('btnText');
+            const btnLoading = document.getElementById('btnLoading');
+            
+            // Get form values
+            const tipo = document.querySelector('input[name="tipo"]:checked').value;
+            const categoria = document.getElementById('categoria').value;
+            const subcategoria = document.getElementById('subcategoria').value.trim();
+            const valorStr = document.getElementById('valor').value;
+            const data = document.getElementById('data').value;
+            const responsavel = document.getElementById('responsavel').value;
+            const descricao = document.getElementById('descricao').value.trim();
+            
+            // Validation
+            if (!categoria) {
+                showToast('Selecione uma categoria', 'warning');
+                return;
+            }
+            
+            if (!valorStr) {
+                showToast('Informe o valor', 'warning');
+                return;
+            }
+            
+            if (!data) {
+                showToast('Informe a data', 'warning');
+                return;
+            }
+            
+            if (!responsavel) {
+                showToast('Selecione quem pagou', 'warning');
+                return;
+            }
+            
+            // Parse valor
+            const valor = parseFloat(valorStr.replace(',', '.'));
+            if (isNaN(valor) || valor <= 0) {
+                showToast('Valor inválido', 'error');
+                return;
+            }
+            
+            // Loading state
+            btnSalvar.disabled = true;
+            btnText.classList.add('hidden');
+            btnLoading.classList.remove('hidden');
+            
+            try {
+                const gasto = {
+                    id: editingId || generateId(),
+                    tipo: tipo,
+                    categoria: categoria,
+                    subcategoria: subcategoria || null, // OPTIONAL - can be null
+                    valor: valor,
+                    data: data,
+                    responsavel: responsavel,
+                    descricao: descricao || null,
+                    updatedAt: new Date().toISOString(),
+                    updatedBy: getCurrentUser()
+                };
+                
+                if (!editingId) {
+                    gasto.createdAt = gasto.updatedAt;
+                    gasto.createdBy = getCurrentUser();
+                }
+                
+                // Save to Firebase
+                await database.ref('gastos/' + gasto.id).set(gasto);
+                
+                // Log action
+                logAction(editingId ? 'edição' : 'criação', gasto);
+                
+                // Success
+                showToast(editingId ? 'Gasto atualizado! ✅' : 'Gasto salvo! ✅', 'success');
+                
+                // Clear form and redirect
+                setTimeout(() => {
+                    limparForm();
+                    // FIX: Redirect to dashboard instead of staying on blank page
+                    window.location.href = 'dashboard.html';
+                }, 800);
+                
+            } catch (error) {
+                console.error('Erro ao salvar:', error);
+                showToast('Erro ao salvar. Tente novamente.', 'error');
+                
+                // Reset button
+                btnSalvar.disabled = false;
+                btnText.classList.remove('hidden');
+                btnLoading.classList.add('hidden');
+            }
+        });
+        
+        // Init
+        document.getElementById('data').value = getTodayDateString();
+        loadAppData();
+    </script>
+</body>
+</html>

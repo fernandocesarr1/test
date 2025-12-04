@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#3b82f6">
+    <title>Pesquisa - COF</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="css/styles.css">
+    
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container header-content">
+            <a href="dashboard.html" class="logo">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                COF
+            </a>
+            
+            <button class="nav-toggle" onclick="toggleNav()">☰</button>
+            
+            <nav class="nav" id="mainNav">
+                <a href="dashboard.html" class="nav-link">Dashboard</a>
+                <a href="adicionar.html" class="nav-link">Adicionar</a>
+                <a href="graficos.html" class="nav-link">Gráficos</a>
+                <a href="historico.html" class="nav-link">Histórico</a>
+                <a href="pesquisa.html" class="nav-link active">Pesquisa</a>
+                <a href="config.html" class="nav-link">Config</a>
+                <button class="dark-mode-toggle" onclick="toggleDarkMode()" title="Alternar tema">🌙</button>
+                <button class="btn btn-ghost btn-sm" onclick="logout()">Sair</button>
+            </nav>
+        </div>
+    </header>
+    
+    <!-- Main Content -->
+    <main class="container" style="padding: var(--space-xl) var(--space-md);">
+        <h1 style="margin-bottom: var(--space-lg);">🔍 Pesquisa Avançada</h1>
+        
+        <!-- Search Form -->
+        <div class="card fade-in" style="margin-bottom: var(--space-lg);">
+            <div class="form-group">
+                <label class="form-label">Buscar por texto</label>
+                <input type="text" class="form-input" id="searchText" 
+                       placeholder="Digite categoria, descrição, subcategoria...">
+            </div>
+            
+            <div class="grid grid-4" style="gap: var(--space-md);">
+                <div class="form-group" style="margin: 0;">
+                    <label class="form-label">Data Início</label>
+                    <input type="date" class="form-input" id="dateStart">
+                </div>
+                <div class="form-group" style="margin: 0;">
+                    <label class="form-label">Data Fim</label>
+                    <input type="date" class="form-input" id="dateEnd">
+                </div>
+                <div class="form-group" style="margin: 0;">
+                    <label class="form-label">Valor Mínimo</label>
+                    <input type="number" class="form-input" id="valorMin" placeholder="0">
+                </div>
+                <div class="form-group" style="margin: 0;">
+                    <label class="form-label">Valor Máximo</label>
+                    <input type="number" class="form-input" id="valorMax" placeholder="10000">
+                </div>
+            </div>
+            
+            <div class="flex gap-sm" style="margin-top: var(--space-md);">
+                <button class="btn btn-primary" onclick="search()">🔍 Pesquisar</button>
+                <button class="btn btn-secondary" onclick="clearSearch()">Limpar</button>
+            </div>
+        </div>
+        
+        <!-- Results -->
+        <div class="card fade-in">
+            <div class="flex justify-between items-center mb-md">
+                <h3 class="card-title" style="margin: 0;">Resultados</h3>
+                <span class="badge badge-blue" id="resultCount">0 encontrados</span>
+            </div>
+            
+            <div id="searchResults">
+                <p class="text-center text-muted">Use os filtros acima para pesquisar</p>
+            </div>
+            
+            <!-- Totals -->
+            <div id="searchTotals" class="hidden" style="margin-top: var(--space-lg); padding-top: var(--space-lg); border-top: 1px solid var(--border-color);">
+                <div class="grid grid-3">
+                    <div>
+                        <p class="text-muted" style="font-size: 0.875rem; margin: 0;">Total Geral</p>
+                        <p style="font-size: 1.25rem; font-weight: bold; margin: 0;" id="totalGeral">R$ 0,00</p>
+                    </div>
+                    <div>
+                        <p class="text-muted" style="font-size: 0.875rem; margin: 0;">Média por Gasto</p>
+                        <p style="font-size: 1.25rem; font-weight: bold; margin: 0;" id="mediaGasto">R$ 0,00</p>
+                    </div>
+                    <div>
+                        <p class="text-muted" style="font-size: 0.875rem; margin: 0;">Maior Gasto</p>
+                        <p style="font-size: 1.25rem; font-weight: bold; margin: 0;" id="maiorGasto">R$ 0,00</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Quick Searches -->
+        <div class="card fade-in" style="margin-top: var(--space-lg);">
+            <h4 style="margin-bottom: var(--space-md);">⚡ Pesquisas Rápidas</h4>
+            <div class="flex gap-sm" style="flex-wrap: wrap;">
+                <button class="btn btn-secondary btn-sm" onclick="quickSearch('thisMonth')">Este Mês</button>
+                <button class="btn btn-secondary btn-sm" onclick="quickSearch('lastMonth')">Mês Passado</button>
+                <button class="btn btn-secondary btn-sm" onclick="quickSearch('thisYear')">Este Ano</button>
+                <button class="btn btn-secondary btn-sm" onclick="quickSearch('top10')">Top 10 Maiores</button>
+                <button class="btn btn-secondary btn-sm" onclick="quickSearch('last30')">Últimos 30 dias</button>
+            </div>
+        </div>
+    </main>
+    
+    <div id="toast-container"></div>
+    
+    <script src="js/shared.js"></script>
+    <script>
+        if (!checkAuth()) window.location.href = 'index.html';
+        initFirebase();
+        
+        let gastos = [];
+        
+        function loadData() {
+            database.ref('gastos').on('value', (snapshot) => {
+                gastos = snapshot.val() ? Object.values(snapshot.val()) : [];
+            });
+        }
+        
+        function search() {
+            const text = document.getElementById('searchText').value.toLowerCase().trim();
+            const dateStart = document.getElementById('dateStart').value;
+            const dateEnd = document.getElementById('dateEnd').value;
+            const valorMin = parseFloat(document.getElementById('valorMin').value) || 0;
+            const valorMax = parseFloat(document.getElementById('valorMax').value) || Infinity;
+            
+            let results = gastos.filter(g => {
+                // Text search
+                if (text) {
+                    const searchFields = [
+                        g.categoria, g.subcategoria, g.descricao, g.responsavel
+                    ].filter(Boolean).join(' ').toLowerCase();
+                    if (!searchFields.includes(text)) return false;
+                }
+                
+                // Date range
+                if (dateStart && g.data < dateStart) return false;
+                if (dateEnd && g.data > dateEnd) return false;
+                
+                // Value range
+                const valor = parseFloat(g.valor) || 0;
+                if (valor < valorMin || valor > valorMax) return false;
+                
+                return true;
+            });
+            
+            // Sort by date desc
+            results.sort((a, b) => new Date(b.data) - new Date(a.data));
+            
+            displayResults(results);
+        }
+        
+        function displayResults(results) {
+            const container = document.getElementById('searchResults');
+            const totals = document.getElementById('searchTotals');
+            
+            document.getElementById('resultCount').textContent = `${results.length} encontrados`;
+            
+            if (results.length === 0) {
+                container.innerHTML = '<p class="text-center text-muted">Nenhum resultado encontrado</p>';
+                totals.classList.add('hidden');
+                return;
+            }
+            
+            // Show totals
+            const total = results.reduce((s, g) => s + (parseFloat(g.valor) || 0), 0);
+            const media = total / results.length;
+            const maior = Math.max(...results.map(g => parseFloat(g.valor) || 0));
+            
+            document.getElementById('totalGeral').textContent = formatCurrency(total);
+            document.getElementById('mediaGasto').textContent = formatCurrency(media);
+            document.getElementById('maiorGasto').textContent = formatCurrency(maior);
+            totals.classList.remove('hidden');
+            
+            // Display results
+            let html = '<div style="max-height: 400px; overflow-y: auto;">';
+            results.forEach(g => {
+                const badgeClass = g.tipo === 'fixo' ? 'badge-purple' : 'badge-orange';
+                html += `
+                    <div class="expense-item">
+                        <div class="expense-info">
+                            <div class="flex items-center gap-sm">
+                                <span class="badge ${badgeClass}">${g.categoria || '-'}</span>
+                                ${g.subcategoria ? `<small class="text-muted">${g.subcategoria}</small>` : ''}
+                            </div>
+                            <div class="expense-description" style="margin-top: var(--space-xs);">
+                                ${g.descricao || '-'} • ${g.responsavel || '-'}
+                            </div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div class="expense-value">${formatCurrency(g.valor)}</div>
+                            <div class="expense-date">${formatDate(g.data)}</div>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            
+            container.innerHTML = html;
+        }
+        
+        function clearSearch() {
+            document.getElementById('searchText').value = '';
+            document.getElementById('dateStart').value = '';
+            document.getElementById('dateEnd').value = '';
+            document.getElementById('valorMin').value = '';
+            document.getElementById('valorMax').value = '';
+            
+            document.getElementById('searchResults').innerHTML = '<p class="text-center text-muted">Use os filtros acima para pesquisar</p>';
+            document.getElementById('searchTotals').classList.add('hidden');
+            document.getElementById('resultCount').textContent = '0 encontrados';
+            
+            showToast('Filtros limpos', 'info');
+        }
+        
+        function quickSearch(type) {
+            clearSearch();
+            
+            const today = new Date();
+            let dateStart, dateEnd;
+            
+            switch(type) {
+                case 'thisMonth':
+                    dateStart = new Date(today.getFullYear(), today.getMonth(), 1);
+                    dateEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                    document.getElementById('dateStart').value = formatDateISO(dateStart);
+                    document.getElementById('dateEnd').value = formatDateISO(dateEnd);
+                    break;
+                    
+                case 'lastMonth':
+                    dateStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+                    dateEnd = new Date(today.getFullYear(), today.getMonth(), 0);
+                    document.getElementById('dateStart').value = formatDateISO(dateStart);
+                    document.getElementById('dateEnd').value = formatDateISO(dateEnd);
+                    break;
+                    
+                case 'thisYear':
+                    dateStart = new Date(today.getFullYear(), 0, 1);
+                    document.getElementById('dateStart').value = formatDateISO(dateStart);
+                    break;
+                    
+                case 'last30':
+                    dateStart = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+                    document.getElementById('dateStart').value = formatDateISO(dateStart);
+                    document.getElementById('dateEnd').value = formatDateISO(today);
+                    break;
+                    
+                case 'top10':
+                    const top10 = [...gastos]
+                        .sort((a, b) => (parseFloat(b.valor) || 0) - (parseFloat(a.valor) || 0))
+                        .slice(0, 10);
+                    displayResults(top10);
+                    return;
+            }
+            
+            search();
+        }
+        
+        function toggleNav() {
+            document.getElementById('mainNav').classList.toggle('open');
+        }
+        
+        // Search on Enter
+        document.getElementById('searchText').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') search();
+        });
+        
+        loadData();
+    </script>
+</body>
+</html>
