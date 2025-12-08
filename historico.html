@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#3b82f6">
+    <title>Histórico - COF</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="css/styles.css">
+    
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container header-content">
+            <a href="dashboard.html" class="logo">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                COF
+            </a>
+            
+            <button class="nav-toggle" onclick="toggleNav()">☰</button>
+            
+            <nav class="nav" id="mainNav">
+                <a href="dashboard.html" class="nav-link">Dashboard</a>
+                <a href="adicionar.html" class="nav-link">Adicionar</a>
+                <a href="graficos.html" class="nav-link">Gráficos</a>
+                <a href="historico.html" class="nav-link active">Histórico</a>
+                <a href="pesquisa.html" class="nav-link">Pesquisa</a>
+                <a href="config.html" class="nav-link">Config</a>
+                <button class="dark-mode-toggle" onclick="toggleDarkMode()" title="Alternar tema">🌙</button>
+                <button class="btn btn-ghost btn-sm" onclick="logout()">Sair</button>
+            </nav>
+        </div>
+    </header>
+    
+    <!-- Main Content -->
+    <main class="container" style="padding: var(--space-xl) var(--space-md);">
+        <div class="flex justify-between items-center mb-lg" style="flex-wrap: wrap; gap: var(--space-md);">
+            <h1 style="margin: 0;">📋 Histórico de Gastos</h1>
+            <div class="flex gap-sm">
+                <button class="btn btn-secondary btn-sm" onclick="exportExcel()">📊 Excel</button>
+                <button class="btn btn-secondary btn-sm" onclick="exportPDF()">📄 PDF</button>
+                <button class="btn btn-secondary btn-sm" onclick="showLogs()">🔔 Logs</button>
+            </div>
+        </div>
+        
+        <!-- Filters -->
+        <div class="card fade-in" style="margin-bottom: var(--space-lg);">
+            <div class="grid grid-4" style="gap: var(--space-md);">
+                <div class="form-group" style="margin: 0;">
+                    <label class="form-label">Mês</label>
+                    <select class="form-select" id="filterMonth"></select>
+                </div>
+                <div class="form-group" style="margin: 0;">
+                    <label class="form-label">Ano</label>
+                    <select class="form-select" id="filterYear"></select>
+                </div>
+                <div class="form-group" style="margin: 0;">
+                    <label class="form-label">Tipo</label>
+                    <select class="form-select" id="filterTipo">
+                        <option value="">Todos</option>
+                        <option value="fixo">Fixo</option>
+                        <option value="variavel">Variável</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin: 0;">
+                    <label class="form-label">Categoria</label>
+                    <select class="form-select" id="filterCategoria">
+                        <option value="">Todas</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Summary -->
+        <div class="flex gap-md mb-lg" style="flex-wrap: wrap;">
+            <div class="badge badge-blue" style="font-size: 0.875rem; padding: var(--space-sm) var(--space-md);">
+                <span id="totalCount">0</span> registros
+            </div>
+            <div class="badge badge-green" style="font-size: 0.875rem; padding: var(--space-sm) var(--space-md);">
+                Total: <span id="totalValue">R$ 0,00</span>
+            </div>
+        </div>
+        
+        <!-- Table -->
+        <div class="card fade-in">
+            <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Categoria</th>
+                            <th>Subcategoria</th>
+                            <th>Descrição</th>
+                            <th>Responsável</th>
+                            <th>Valor</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historicoBody">
+                        <tr>
+                            <td colspan="7" class="text-center text-muted">Carregando...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+    
+    <!-- Delete Confirmation Modal -->
+    <div class="modal-overlay" id="deleteModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">⚠️ Confirmar Exclusão</h3>
+                <button class="modal-close" onclick="closeDeleteModal()">&times;</button>
+            </div>
+            <p>Tem certeza que deseja excluir este gasto?</p>
+            <p id="deleteDetails" style="background: var(--bg-tertiary); padding: var(--space-md); border-radius: var(--radius-md);"></p>
+            <div class="flex gap-sm" style="margin-top: var(--space-lg);">
+                <button class="btn btn-secondary" onclick="closeDeleteModal()" style="flex: 1;">Cancelar</button>
+                <button class="btn btn-danger" onclick="confirmDelete()" style="flex: 1;">Excluir</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Logs Modal -->
+    <div class="modal-overlay" id="logsModal">
+        <div class="modal" style="max-width: 700px;">
+            <div class="modal-header">
+                <h3 class="modal-title">🔔 Registro de Ações</h3>
+                <button class="modal-close" onclick="closeLogsModal()">&times;</button>
+            </div>
+            <div id="logsContent" style="max-height: 400px; overflow-y: auto;">
+                <div class="loading-skeleton">
+                    <div class="skeleton-line"></div>
+                    <div class="skeleton-line short"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="toast-container"></div>
+    
+    <script src="js/shared.js"></script>
+    <script>
+        if (!checkAuth()) window.location.href = 'index.html';
+        initFirebase();
+        
+        let gastos = [];
+        let appData = {};
+        let deleteId = null;
+        let selectedMonth = new Date().getMonth();
+        let selectedYear = new Date().getFullYear();
+        
+        const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+                       'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+        
+        function initFilters() {
+            const monthSelect = document.getElementById('filterMonth');
+            months.forEach((m, i) => {
+                const opt = document.createElement('option');
+                opt.value = i;
+                opt.textContent = m;
+                if (i === selectedMonth) opt.selected = true;
+                monthSelect.appendChild(opt);
+            });
+            
+            const yearSelect = document.getElementById('filterYear');
+            const currentYear = new Date().getFullYear();
+            for (let y = currentYear - 3; y <= currentYear + 1; y++) {
+                const opt = document.createElement('option');
+                opt.value = y;
+                opt.textContent = y;
+                if (y === selectedYear) opt.selected = true;
+                yearSelect.appendChild(opt);
+            }
+            
+            monthSelect.addEventListener('change', () => { selectedMonth = parseInt(monthSelect.value); updateTable(); });
+            yearSelect.addEventListener('change', () => { selectedYear = parseInt(yearSelect.value); updateTable(); });
+            document.getElementById('filterTipo').addEventListener('change', updateTable);
+            document.getElementById('filterCategoria').addEventListener('change', updateTable);
+        }
+        
+        function loadData() {
+            database.ref('appData').once('value', (snapshot) => {
+                appData = snapshot.val() || {};
+                const catSelect = document.getElementById('filterCategoria');
+                const allCats = [...(appData.categorias?.fixas || []), ...(appData.categorias?.variaveis || [])];
+                allCats.forEach(cat => {
+                    const opt = document.createElement('option');
+                    opt.value = cat;
+                    opt.textContent = cat;
+                    catSelect.appendChild(opt);
+                });
+            });
+            
+            database.ref('gastos').on('value', (snapshot) => {
+                gastos = snapshot.val() ? Object.values(snapshot.val()) : [];
+                updateTable();
+            });
+        }
+        
+        function getFiltered() {
+            const tipo = document.getElementById('filterTipo').value;
+            const categoria = document.getElementById('filterCategoria').value;
+            
+            return gastos.filter(g => {
+                if (!g.data) return false;
+                const [year, month] = g.data.split('-').map(Number);
+                if (month - 1 !== selectedMonth || year !== selectedYear) return false;
+                if (tipo && g.tipo !== tipo) return false;
+                if (categoria && g.categoria !== categoria) return false;
+                return true;
+            }).sort((a, b) => new Date(b.data) - new Date(a.data));
+        }
+        
+        function updateTable() {
+            const filtered = getFiltered();
+            const tbody = document.getElementById('historicoBody');
+            
+            document.getElementById('totalCount').textContent = filtered.length;
+            const total = filtered.reduce((s, g) => s + (parseFloat(g.valor) || 0), 0);
+            document.getElementById('totalValue').textContent = formatCurrency(total);
+            
+            if (filtered.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Nenhum registro encontrado</td></tr>';
+                return;
+            }
+            
+            let html = '';
+            filtered.forEach(g => {
+                const badgeClass = g.tipo === 'fixo' ? 'badge-purple' : 'badge-orange';
+                html += `
+                    <tr>
+                        <td>${formatDate(g.data)}</td>
+                        <td><span class="badge ${badgeClass}">${g.categoria || '-'}</span></td>
+                        <td>${g.subcategoria || '-'}</td>
+                        <td>${g.descricao || '-'}</td>
+                        <td>${g.responsavel || '-'}</td>
+                        <td><strong>${formatCurrency(g.valor)}</strong></td>
+                        <td>
+                            <div class="flex gap-xs">
+                                <button class="btn btn-ghost btn-sm" onclick="editGasto('${g.id}')" title="Editar">✏️</button>
+                                <button class="btn btn-ghost btn-sm" onclick="showDeleteModal('${g.id}')" title="Excluir">🗑️</button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            tbody.innerHTML = html;
+        }
+        
+        function editGasto(id) {
+            window.location.href = `adicionar.html?edit=${id}`;
+        }
+        
+        function showDeleteModal(id) {
+            deleteId = id;
+            const gasto = gastos.find(g => g.id === id);
+            if (!gasto) return;
+            
+            document.getElementById('deleteDetails').innerHTML = `
+                <strong>${gasto.categoria}</strong> - ${formatCurrency(gasto.valor)}<br>
+                ${formatDate(gasto.data)} • ${gasto.responsavel || 'Não informado'}
+            `;
+            document.getElementById('deleteModal').classList.add('open');
+        }
+        
+        function closeDeleteModal() {
+            document.getElementById('deleteModal').classList.remove('open');
+            deleteId = null;
+        }
+        
+        function confirmDelete() {
+            if (!deleteId) return;
+            
+            const gasto = gastos.find(g => g.id === deleteId);
+            database.ref('gastos/' + deleteId).remove()
+                .then(() => {
+                    logAction('exclusão', gasto);
+                    showToast('Gasto excluído!', 'success');
+                    closeDeleteModal();
+                })
+                .catch(() => showToast('Erro ao excluir', 'error'));
+        }
+        
+        function showLogs() {
+            document.getElementById('logsModal').classList.add('open');
+            
+            database.ref('logs').orderByChild('timestamp').limitToLast(50).once('value', (snapshot) => {
+                const logs = snapshot.val() ? Object.values(snapshot.val()).reverse() : [];
+                const container = document.getElementById('logsContent');
+                
+                if (logs.length === 0) {
+                    container.innerHTML = '<p class="text-center text-muted">Nenhum registro</p>';
+                    return;
+                }
+                
+                let html = '';
+                logs.forEach(log => {
+                    const date = new Date(log.timestamp);
+                    const actionIcon = log.action === 'criação' ? '➕' : log.action === 'edição' ? '✏️' : '🗑️';
+                    const actionColor = log.action === 'criação' ? 'green' : log.action === 'edição' ? 'blue' : 'red';
+                    
+                    html += `
+                        <div style="padding: var(--space-sm); border-bottom: 1px solid var(--border-color);">
+                            <div class="flex justify-between items-center">
+                                <span class="badge badge-${actionColor}">${actionIcon} ${log.action}</span>
+                                <small class="text-muted">${date.toLocaleDateString('pt-BR')} ${date.toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'})}</small>
+                            </div>
+                            <div style="margin-top: var(--space-xs); font-size: 0.875rem;">
+                                ${log.data?.categoria || '-'} • ${formatCurrency(log.data?.valor)} • ${log.user || '-'}
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                container.innerHTML = html;
+            });
+        }
+        
+        function closeLogsModal() {
+            document.getElementById('logsModal').classList.remove('open');
+        }
+        
+        function exportExcel() {
+            const filtered = getFiltered();
+            if (filtered.length === 0) {
+                showToast('Nenhum dado para exportar', 'warning');
+                return;
+            }
+            
+            const data = filtered.map(g => ({
+                Data: formatDate(g.data),
+                Tipo: g.tipo === 'fixo' ? 'Fixo' : 'Variável',
+                Categoria: g.categoria || '',
+                Subcategoria: g.subcategoria || '',
+                Descrição: g.descricao || '',
+                Responsável: g.responsavel || '',
+                Valor: parseFloat(g.valor) || 0
+            }));
+            
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Gastos');
+            XLSX.writeFile(wb, `COF_${months[selectedMonth]}_${selectedYear}.xlsx`);
+            showToast('Excel exportado!', 'success');
+        }
+        
+        function exportPDF() {
+            const filtered = getFiltered();
+            if (filtered.length === 0) {
+                showToast('Nenhum dado para exportar', 'warning');
+                return;
+            }
+            
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            doc.setFontSize(18);
+            doc.text(`COF - ${months[selectedMonth]} ${selectedYear}`, 14, 22);
+            
+            const total = filtered.reduce((s, g) => s + (parseFloat(g.valor) || 0), 0);
+            doc.setFontSize(12);
+            doc.text(`Total: ${formatCurrency(total)}`, 14, 32);
+            
+            const tableData = filtered.map(g => [
+                formatDate(g.data),
+                g.categoria || '-',
+                g.descricao || '-',
+                g.responsavel || '-',
+                formatCurrency(g.valor)
+            ]);
+            
+            doc.autoTable({
+                head: [['Data', 'Categoria', 'Descrição', 'Responsável', 'Valor']],
+                body: tableData,
+                startY: 40
+            });
+            
+            doc.save(`COF_${months[selectedMonth]}_${selectedYear}.pdf`);
+            showToast('PDF exportado!', 'success');
+        }
+        
+        function toggleNav() {
+            document.getElementById('mainNav').classList.toggle('open');
+        }
+        
+        initFilters();
+        loadData();
+    </script>
+</body>
+</html>

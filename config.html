@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#3b82f6">
+    <title>Configurações - COF</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="css/styles.css">
+    
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container header-content">
+            <a href="dashboard.html" class="logo">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                COF
+            </a>
+            
+            <button class="nav-toggle" onclick="toggleNav()">☰</button>
+            
+            <nav class="nav" id="mainNav">
+                <a href="dashboard.html" class="nav-link">Dashboard</a>
+                <a href="adicionar.html" class="nav-link">Adicionar</a>
+                <a href="graficos.html" class="nav-link">Gráficos</a>
+                <a href="historico.html" class="nav-link">Histórico</a>
+                <a href="pesquisa.html" class="nav-link">Pesquisa</a>
+                <a href="config.html" class="nav-link active">Config</a>
+                <button class="dark-mode-toggle" onclick="toggleDarkMode()" title="Alternar tema">🌙</button>
+                <button class="btn btn-ghost btn-sm" onclick="logout()">Sair</button>
+            </nav>
+        </div>
+    </header>
+    
+    <!-- Main Content -->
+    <main class="container" style="padding: var(--space-xl) var(--space-md); max-width: 800px;">
+        <h1 style="margin-bottom: var(--space-lg);">⚙️ Configurações</h1>
+        
+        <!-- Categories Section -->
+        <div class="card fade-in" style="margin-bottom: var(--space-lg);">
+            <h3 class="card-title">📋 Categorias Fixas</h3>
+            <div id="categoriasFixas" class="flex gap-sm" style="flex-wrap: wrap; margin-bottom: var(--space-md);"></div>
+            <div class="flex gap-sm">
+                <input type="text" class="form-input" id="novaCategoriaFixa" placeholder="Nova categoria fixa" style="flex: 1;">
+                <button class="btn btn-primary" onclick="addCategoria('fixas')">+ Adicionar</button>
+            </div>
+        </div>
+        
+        <div class="card fade-in" style="margin-bottom: var(--space-lg);">
+            <h3 class="card-title">🛒 Categorias Variáveis</h3>
+            <div id="categoriasVariaveis" class="flex gap-sm" style="flex-wrap: wrap; margin-bottom: var(--space-md);"></div>
+            <div class="flex gap-sm">
+                <input type="text" class="form-input" id="novaCategoriaVariavel" placeholder="Nova categoria variável" style="flex: 1;">
+                <button class="btn btn-primary" onclick="addCategoria('variaveis')">+ Adicionar</button>
+            </div>
+        </div>
+        
+        <!-- Subcategories Section -->
+        <div class="card fade-in" style="margin-bottom: var(--space-lg);">
+            <h3 class="card-title">🏷️ Subcategorias</h3>
+            <p class="text-muted" style="font-size: 0.875rem; margin-bottom: var(--space-md);">
+                Defina subcategorias para cada categoria. Ex: Lazer → Cinema, Restaurante, Parque
+            </p>
+            <div class="form-group">
+                <label class="form-label">Selecione a Categoria</label>
+                <select class="form-select" id="selectCategoriaParaSub" onchange="renderSubcategorias()">
+                    <option value="">Selecione...</option>
+                </select>
+            </div>
+            <div id="subcategoriasContainer" style="margin-bottom: var(--space-md);"></div>
+            <div id="addSubcategoriaForm" class="flex gap-sm" style="display: none;">
+                <input type="text" class="form-input" id="novaSubcategoria" placeholder="Nova subcategoria" style="flex: 1;">
+                <button class="btn btn-primary" onclick="addSubcategoria()">+ Adicionar</button>
+            </div>
+        </div>
+        
+        <!-- Limits Section -->
+        <div class="card fade-in" style="margin-bottom: var(--space-lg);">
+            <h3 class="card-title">💰 Limites de Gastos Variáveis</h3>
+            <p class="text-muted" style="font-size: 0.875rem; margin-bottom: var(--space-md);">
+                Defina um limite mensal para cada categoria variável. Você receberá alertas quando estiver próximo.
+            </p>
+            <div id="limitesContainer"></div>
+            <button class="btn btn-success" onclick="saveLimites()" style="margin-top: var(--space-md);">
+                💾 Salvar Limites
+            </button>
+        </div>
+        
+        <!-- Users Section -->
+        <div class="card fade-in" style="margin-bottom: var(--space-lg);">
+            <h3 class="card-title">👥 Usuários</h3>
+            <div id="usuariosContainer" class="flex gap-sm" style="flex-wrap: wrap; margin-bottom: var(--space-md);"></div>
+            <div class="flex gap-sm">
+                <input type="text" class="form-input" id="novoUsuario" placeholder="Nome do usuário" style="flex: 1;">
+                <button class="btn btn-primary" onclick="addUsuario()">+ Adicionar</button>
+            </div>
+        </div>
+        
+        <!-- Password Section -->
+        <div class="card fade-in" style="margin-bottom: var(--space-lg);">
+            <h3 class="card-title">🔐 Alterar Senha</h3>
+            <div class="form-group">
+                <label class="form-label">Senha Atual</label>
+                <input type="password" class="form-input" id="senhaAtual" placeholder="Digite a senha atual">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Nova Senha</label>
+                <input type="password" class="form-input" id="novaSenha" placeholder="Digite a nova senha">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Confirmar Nova Senha</label>
+                <input type="password" class="form-input" id="confirmarSenha" placeholder="Confirme a nova senha">
+            </div>
+            <button class="btn btn-primary" onclick="alterarSenha()">🔑 Alterar Senha</button>
+        </div>
+        
+        <!-- Theme Section -->
+        <div class="card fade-in" style="margin-bottom: var(--space-lg);">
+            <h3 class="card-title">🎨 Aparência</h3>
+            <div class="flex gap-md items-center">
+                <span>Tema:</span>
+                <button class="btn btn-secondary" onclick="setTheme('light')">☀️ Claro</button>
+                <button class="btn btn-secondary" onclick="setTheme('dark')">🌙 Escuro</button>
+                <button class="btn btn-secondary" onclick="setTheme('auto')">🔄 Automático</button>
+            </div>
+        </div>
+        
+        <!-- PWA Install -->
+        <div class="card fade-in" id="installCard" style="margin-bottom: var(--space-lg); display: none;">
+            <h3 class="card-title">📱 Instalar App</h3>
+            <p class="text-muted">Instale o COF como aplicativo no seu celular para acesso rápido.</p>
+            <button class="btn btn-primary" onclick="installPWA()">📥 Instalar no Celular</button>
+        </div>
+        
+        <!-- Data Section -->
+        <div class="card fade-in">
+            <h3 class="card-title">💾 Dados</h3>
+            <div class="flex gap-sm" style="flex-wrap: wrap;">
+                <button class="btn btn-secondary" onclick="exportData()">📤 Exportar Backup</button>
+                <button class="btn btn-secondary" onclick="document.getElementById('importFile').click()">📥 Importar Backup</button>
+                <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importData(event)">
+            </div>
+            <p class="text-muted" style="font-size: 0.75rem; margin-top: var(--space-sm);">
+                Faça backup regularmente para não perder seus dados.
+            </p>
+        </div>
+    </main>
+    
+    <div id="toast-container"></div>
+    
+    <script src="js/shared.js"></script>
+    <script>
+        if (!checkAuth()) window.location.href = 'index.html';
+        initFirebase();
+        
+        let appData = {};
+        let limites = {};
+        let deferredPrompt = null;
+        
+        function loadData() {
+            database.ref('appData').on('value', (snapshot) => {
+                appData = snapshot.val() || {
+                    categorias: { fixas: [], variaveis: [] },
+                    subcategorias: {},
+                    nomes: []
+                };
+                renderCategorias();
+                renderUsuarios();
+                populateCategoriaSelect();
+            });
+            
+            database.ref('limites').on('value', (snapshot) => {
+                limites = snapshot.val() || {};
+                renderLimites();
+            });
+        }
+        
+        function populateCategoriaSelect() {
+            const select = document.getElementById('selectCategoriaParaSub');
+            select.innerHTML = '<option value="">Selecione...</option>';
+            
+            const allCats = [
+                ...(appData.categorias?.fixas || []),
+                ...(appData.categorias?.variaveis || [])
+            ];
+            
+            allCats.forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat;
+                option.textContent = cat;
+                select.appendChild(option);
+            });
+        }
+        
+        function renderCategorias() {
+            const fixasContainer = document.getElementById('categoriasFixas');
+            const variaveisContainer = document.getElementById('categoriasVariaveis');
+            
+            fixasContainer.innerHTML = (appData.categorias?.fixas || []).map(cat => `
+                <div class="badge badge-purple" style="padding: var(--space-sm) var(--space-md); gap: var(--space-sm);">
+                    ${cat}
+                    <button onclick="removeCategoria('fixas', '${cat}')" style="background: none; border: none; cursor: pointer; opacity: 0.7;">✕</button>
+                </div>
+            `).join('');
+            
+            variaveisContainer.innerHTML = (appData.categorias?.variaveis || []).map(cat => `
+                <div class="badge badge-orange" style="padding: var(--space-sm) var(--space-md); gap: var(--space-sm);">
+                    ${cat}
+                    <button onclick="removeCategoria('variaveis', '${cat}')" style="background: none; border: none; cursor: pointer; opacity: 0.7;">✕</button>
+                </div>
+            `).join('');
+        }
+        
+        function renderSubcategorias() {
+            const categoria = document.getElementById('selectCategoriaParaSub').value;
+            const container = document.getElementById('subcategoriasContainer');
+            const addForm = document.getElementById('addSubcategoriaForm');
+            
+            if (!categoria) {
+                container.innerHTML = '<p class="text-muted">Selecione uma categoria acima</p>';
+                addForm.style.display = 'none';
+                return;
+            }
+            
+            addForm.style.display = 'flex';
+            const subcategorias = appData.subcategorias?.[categoria] || [];
+            
+            if (subcategorias.length === 0) {
+                container.innerHTML = '<p class="text-muted">Nenhuma subcategoria cadastrada para ' + categoria + '</p>';
+                return;
+            }
+            
+            container.innerHTML = '<div class="flex gap-sm" style="flex-wrap: wrap;">' + 
+                subcategorias.map(sub => `
+                    <div class="badge badge-blue" style="padding: var(--space-sm) var(--space-md); gap: var(--space-sm);">
+                        ${sub}
+                        <button onclick="removeSubcategoria('${categoria}', '${sub}')" style="background: none; border: none; cursor: pointer; opacity: 0.7;">✕</button>
+                    </div>
+                `).join('') + '</div>';
+        }
+        
+        function addSubcategoria() {
+            const categoria = document.getElementById('selectCategoriaParaSub').value;
+            const input = document.getElementById('novaSubcategoria');
+            const nome = input.value.trim();
+            
+            if (!categoria) {
+                showToast('Selecione uma categoria primeiro', 'warning');
+                return;
+            }
+            
+            if (!nome) {
+                showToast('Digite um nome', 'warning');
+                return;
+            }
+            
+            const subcategorias = appData.subcategorias?.[categoria] || [];
+            if (subcategorias.includes(nome)) {
+                showToast('Subcategoria já existe', 'warning');
+                return;
+            }
+            
+            subcategorias.push(nome);
+            database.ref(`appData/subcategorias/${categoria}`).set(subcategorias)
+                .then(() => {
+                    showToast('Subcategoria adicionada!', 'success');
+                    input.value = '';
+                })
+                .catch(() => showToast('Erro ao salvar', 'error'));
+        }
+        
+        function removeSubcategoria(categoria, nome) {
+            if (!confirm(`Remover subcategoria "${nome}"?`)) return;
+            
+            const subcategorias = (appData.subcategorias?.[categoria] || []).filter(s => s !== nome);
+            database.ref(`appData/subcategorias/${categoria}`).set(subcategorias)
+                .then(() => showToast('Subcategoria removida!', 'success'))
+                .catch(() => showToast('Erro ao remover', 'error'));
+        }
+        
+        function renderLimites() {
+            const container = document.getElementById('limitesContainer');
+            const variaveis = appData.categorias?.variaveis || [];
+            
+            if (variaveis.length === 0) {
+                container.innerHTML = '<p class="text-muted">Nenhuma categoria variável configurada</p>';
+                return;
+            }
+            
+            container.innerHTML = variaveis.map(cat => `
+                <div class="form-group" style="margin-bottom: var(--space-sm);">
+                    <div class="flex gap-sm items-center">
+                        <label style="flex: 1; font-weight: 500;">${cat}</label>
+                        <div style="position: relative; width: 150px;">
+                            <span style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.875rem;">R$</span>
+                            <input type="number" class="form-input limite-input" 
+                                   data-categoria="${cat}" 
+                                   value="${limites[cat] || ''}" 
+                                   placeholder="0,00"
+                                   style="padding-left: 35px;">
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function renderUsuarios() {
+            const container = document.getElementById('usuariosContainer');
+            container.innerHTML = (appData.nomes || []).map(nome => `
+                <div class="badge badge-blue" style="padding: var(--space-sm) var(--space-md); gap: var(--space-sm);">
+                    ${nome}
+                    <button onclick="removeUsuario('${nome}')" style="background: none; border: none; cursor: pointer; opacity: 0.7;">✕</button>
+                </div>
+            `).join('');
+        }
+        
+        function addCategoria(tipo) {
+            const input = document.getElementById(tipo === 'fixas' ? 'novaCategoriaFixa' : 'novaCategoriaVariavel');
+            const nome = input.value.trim();
+            
+            if (!nome) {
+                showToast('Digite um nome', 'warning');
+                return;
+            }
+            
+            const categorias = appData.categorias?.[tipo] || [];
+            if (categorias.includes(nome)) {
+                showToast('Categoria já existe', 'warning');
+                return;
+            }
+            
+            categorias.push(nome);
+            database.ref(`appData/categorias/${tipo}`).set(categorias)
+                .then(() => {
+                    showToast('Categoria adicionada!', 'success');
+                    input.value = '';
+                })
+                .catch(() => showToast('Erro ao salvar', 'error'));
+        }
+        
+        function removeCategoria(tipo, nome) {
+            if (!confirm(`Remover categoria "${nome}"?`)) return;
+            
+            const categorias = (appData.categorias?.[tipo] || []).filter(c => c !== nome);
+            database.ref(`appData/categorias/${tipo}`).set(categorias)
+                .then(() => showToast('Categoria removida!', 'success'))
+                .catch(() => showToast('Erro ao remover', 'error'));
+        }
+        
+        function saveLimites() {
+            const inputs = document.querySelectorAll('.limite-input');
+            const newLimites = {};
+            
+            inputs.forEach(input => {
+                const cat = input.dataset.categoria;
+                const valor = parseFloat(input.value) || 0;
+                if (valor > 0) {
+                    newLimites[cat] = valor;
+                }
+            });
+            
+            database.ref('limites').set(newLimites)
+                .then(() => showToast('Limites salvos!', 'success'))
+                .catch(() => showToast('Erro ao salvar', 'error'));
+        }
+        
+        function addUsuario() {
+            const input = document.getElementById('novoUsuario');
+            const nome = input.value.trim();
+            
+            if (!nome) {
+                showToast('Digite um nome', 'warning');
+                return;
+            }
+            
+            const nomes = appData.nomes || [];
+            if (nomes.includes(nome)) {
+                showToast('Usuário já existe', 'warning');
+                return;
+            }
+            
+            nomes.push(nome);
+            database.ref('appData/nomes').set(nomes)
+                .then(() => {
+                    showToast('Usuário adicionado!', 'success');
+                    input.value = '';
+                })
+                .catch(() => showToast('Erro ao salvar', 'error'));
+        }
+        
+        function removeUsuario(nome) {
+            if (!confirm(`Remover usuário "${nome}"?`)) return;
+            
+            const nomes = (appData.nomes || []).filter(n => n !== nome);
+            database.ref('appData/nomes').set(nomes)
+                .then(() => showToast('Usuário removido!', 'success'))
+                .catch(() => showToast('Erro ao remover', 'error'));
+        }
+        
+        async function alterarSenha() {
+            const atual = document.getElementById('senhaAtual').value;
+            const nova = document.getElementById('novaSenha').value;
+            const confirmar = document.getElementById('confirmarSenha').value;
+            
+            if (!atual || !nova || !confirmar) {
+                showToast('Preencha todos os campos', 'warning');
+                return;
+            }
+            
+            if (nova !== confirmar) {
+                showToast('Senhas não conferem', 'error');
+                return;
+            }
+            
+            if (nova.length < 4) {
+                showToast('Senha deve ter pelo menos 4 caracteres', 'warning');
+                return;
+            }
+            
+            // Verify current password
+            const snapshot = await database.ref('appData/senha').once('value');
+            const senhaAtual = snapshot.val() || '1234';
+            
+            if (atual !== senhaAtual) {
+                showToast('Senha atual incorreta', 'error');
+                return;
+            }
+            
+            database.ref('appData/senha').set(nova)
+                .then(() => {
+                    showToast('Senha alterada!', 'success');
+                    document.getElementById('senhaAtual').value = '';
+                    document.getElementById('novaSenha').value = '';
+                    document.getElementById('confirmarSenha').value = '';
+                })
+                .catch(() => showToast('Erro ao alterar senha', 'error'));
+        }
+        
+        function setTheme(theme) {
+            if (theme === 'dark') {
+                document.documentElement.classList.add('dark');
+                localStorage.setItem('darkMode', 'true');
+            } else if (theme === 'light') {
+                document.documentElement.classList.remove('dark');
+                localStorage.setItem('darkMode', 'false');
+            } else {
+                localStorage.removeItem('darkMode');
+                if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                    document.documentElement.classList.add('dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                }
+            }
+            showToast('Tema alterado!', 'info');
+        }
+        
+        function exportData() {
+            Promise.all([
+                database.ref('gastos').once('value'),
+                database.ref('appData').once('value'),
+                database.ref('limites').once('value'),
+                database.ref('logs').once('value')
+            ]).then(([gastos, appData, limites, logs]) => {
+                const backup = {
+                    exportDate: new Date().toISOString(),
+                    gastos: gastos.val(),
+                    appData: appData.val(),
+                    limites: limites.val(),
+                    logs: logs.val()
+                };
+                
+                const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `COF_backup_${new Date().toISOString().split('T')[0]}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+                
+                showToast('Backup exportado!', 'success');
+            });
+        }
+        
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const backup = JSON.parse(e.target.result);
+                    
+                    if (!confirm('Isso substituirá todos os dados atuais. Continuar?')) return;
+                    
+                    const updates = {};
+                    if (backup.gastos) updates['gastos'] = backup.gastos;
+                    if (backup.appData) updates['appData'] = backup.appData;
+                    if (backup.limites) updates['limites'] = backup.limites;
+                    
+                    database.ref().update(updates)
+                        .then(() => {
+                            showToast('Backup restaurado!', 'success');
+                            setTimeout(() => location.reload(), 1000);
+                        })
+                        .catch(() => showToast('Erro ao restaurar', 'error'));
+                } catch (err) {
+                    showToast('Arquivo inválido', 'error');
+                }
+            };
+            reader.readAsText(file);
+        }
+        
+        // PWA Install
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            document.getElementById('installCard').style.display = 'block';
+        });
+        
+        function installPWA() {
+            if (!deferredPrompt) {
+                showToast('App já instalado ou não disponível', 'info');
+                return;
+            }
+            
+            deferredPrompt.prompt();
+            deferredPrompt.userChoice.then((result) => {
+                if (result.outcome === 'accepted') {
+                    showToast('App instalado!', 'success');
+                }
+                deferredPrompt = null;
+                document.getElementById('installCard').style.display = 'none';
+            });
+        }
+        
+        function toggleNav() {
+            document.getElementById('mainNav').classList.toggle('open');
+        }
+        
+        loadData();
+    </script>
+</body>
+</html>
